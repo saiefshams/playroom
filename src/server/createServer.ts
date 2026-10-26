@@ -268,20 +268,25 @@ export function createPlayroom(options?: { createPerMinute?: number }): Playroom
     })
 
     socket.on('room:action', (payload: unknown, ack: Ack) => {
-      if (typeof ack !== 'function') return
+      const reply = typeof ack === 'function' ? ack : null
       try {
         const token = manager.tokenForSocket(socket.id)
         if (!token) throw new RoomError('That seat expired. Join again.')
         const result = manager.action(token, readAction(payload))
-        if (result.kind === 'ribbon') {
-          socket.to(result.code).emit('ribbon:frame', result.frame)
-          ack({ ok: true, data: { accepted: true } })
+        if (result.kind === 'ignore') {
+          reply?.({ ok: true, data: { accepted: true } })
           return
         }
-        ack({ ok: true, data: { snapshot: manager.snapshot(result.code, token) } })
+        if (result.kind === 'ribbon') {
+          socket.to(result.code).emit('ribbon:frame', result.frame)
+          reply?.({ ok: true, data: { accepted: true } })
+          return
+        }
+        if (!reply) return
+        reply({ ok: true, data: { snapshot: manager.snapshot(result.code, token) } })
         broadcast(result.code)
       } catch (error) {
-        fail(ack, error)
+        if (reply) fail(reply, error)
       }
     })
 

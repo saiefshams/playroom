@@ -11,16 +11,29 @@ const frameListeners = new Set<(frame: RibbonFrame) => void>()
 const closedListeners = new Set<() => void>()
 const replacedListeners = new Set<() => void>()
 
+let ignoringReplacement = false
+
 socket.on('room:snapshot', (snap: Snapshot) => snapshotListeners.forEach((fn) => fn(snap)))
 socket.on('ribbon:frame', (frame: RibbonFrame) => frameListeners.forEach((fn) => fn(frame)))
 socket.on('room:closed', () => closedListeners.forEach((fn) => fn()))
-socket.on('room:replaced', () => replacedListeners.forEach((fn) => fn()))
+socket.on('room:replaced', () => {
+  if (ignoringReplacement) return
+  replacedListeners.forEach((fn) => fn())
+})
 
 socket.io.on('reconnect', () => {
   if (!session.code || !session.token) return
-  void request<{ snapshot: Snapshot }>('room:reconnect', { code: session.code, token: session.token }).catch(() => {
-    replacedListeners.forEach((fn) => fn())
-  })
+  ignoringReplacement = true
+  void request<{ snapshot: Snapshot }>('room:reconnect', { code: session.code, token: session.token })
+    .then((data) => snapshotListeners.forEach((fn) => fn(data.snapshot)))
+    .catch((error: Error) => {
+      if (/expired|does not exist/i.test(error.message)) replacedListeners.forEach((fn) => fn())
+    })
+    .finally(() => {
+      window.setTimeout(() => {
+        ignoringReplacement = false
+      }, 2000)
+    })
 })
 
 export function onSnapshot(fn: (snap: Snapshot) => void): () => void {
@@ -45,6 +58,11 @@ export function onReplaced(fn: () => void): () => void {
 
 export function connectSocket(): void {
   if (!socket.connected) socket.connect()
+}
+
+export function sendRibbon(x: number, y: number, angle: number): void {
+  connectSocket()
+  socket.volatile.emit('room:action', { type: 'ribbon:drive', x, y, angle })
 }
 
 export function request<T>(event: string, payload: unknown): Promise<T> {

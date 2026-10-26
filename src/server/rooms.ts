@@ -86,6 +86,7 @@ interface Location {
 export type ActionResult =
   | { code: string; kind: 'snapshot' }
   | { code: string; kind: 'ribbon'; frame: RibbonFrame }
+  | { code: string; kind: 'ignore' }
 
 function makeCode(): string {
   let code = ''
@@ -369,7 +370,7 @@ export class RoomManager {
 
     if (action.type === 'ribbon:drive') {
       if (room.gameId !== 'ribbon') throw new RoomError('That move does not belong to this game.')
-      if (!this.allow(room, `drive:${token}`, 40, 1000)) throw new RoomError('Slow down a little.')
+      if (!this.allow(room, `drive:${token}`, 30, 1000)) return { code: room.code, kind: 'ignore' }
       const next = drive(room.state as RibbonState, actor, action.x, action.y, action.angle, this.now())
       if (!next) throw new RoomError('Stay on the floor.')
       room.state = next

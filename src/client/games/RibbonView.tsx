@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { TRAIL_MS, type RibbonState } from '../../shared/ribbon'
 import type { Snapshot } from '../../shared/snapshot'
-import { onFrame, request } from '../net'
+import { onFrame, sendRibbon } from '../net'
 
 interface Trail {
   x: number
@@ -42,7 +42,6 @@ export function RibbonView({ snap }: { snap: Snapshot }) {
   const remotes = useRef(new Map<number, Remote>())
   const known = useRef('')
   const lastSend = useRef(0)
-  const lastPoint = useRef({ x: -1, y: -1 })
 
   useEffect(() => {
     const state = snap.state as RibbonState
@@ -226,10 +225,9 @@ export function RibbonView({ snap }: { snap: Snapshot }) {
       const now = Date.now()
       const previous = car.trail[car.trail.length - 1]
       if (!previous || Math.hypot(x - previous.x, y - previous.y) >= 0.004) car.trail.push({ x, y, seenAt: now })
-      if (now - lastSend.current < 80 && Math.hypot(x - lastPoint.current.x, y - lastPoint.current.y) < 0.012) return
+      if (now - lastSend.current < 100) return
       lastSend.current = now
-      lastPoint.current = { x, y }
-      void request('room:action', { type: 'ribbon:drive', x, y, angle: car.angle }).catch(() => undefined)
+      sendRibbon(x, y, car.angle)
     }
     const onMove = (event: PointerEvent) => {
       if (typing()) return

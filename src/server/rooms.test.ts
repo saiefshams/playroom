@@ -113,6 +113,16 @@ describe('rooms', () => {
     expect(rooms.snapshot(ada.code, grace.token).result).toEqual({ type: 'win', winnerSeat: 1, reason: 'resign' })
   })
 
+  test('a burst of ribbon moves keeps the driver in the seat', () => {
+    const rooms = new RoomManager()
+    const host = rooms.create({ gameId: 'ribbon', name: 'Ada', color: '#ff5a5f' })
+    for (let step = 0; step < 80; step += 1) {
+      const result = rooms.action(host.token, { type: 'ribbon:drive', x: (step % 40) / 40, y: 0.4, angle: 0.2 })
+      expect(result.kind === 'ribbon' || result.kind === 'ignore').toBe(true)
+    }
+    expect(rooms.snapshot(host.code, host.token).you).toMatchObject({ role: 'player', seatIndex: 0 })
+  })
+
   test('ribbon relays a drive, fades old points, and frees a seat after eight drivers', () => {
     const { rooms, now } = clocked()
     const host = rooms.create({ gameId: 'ribbon', name: 'Ada', color: '#ff5a5f' })
