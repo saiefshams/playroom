@@ -1,0 +1,9 @@
+node_modules
+dist
+playwright-report
+test-results
+.git
+qa-vitest.json
+qa-playwright.json
+qa-stress.json
+*.log
